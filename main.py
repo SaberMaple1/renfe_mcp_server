@@ -6,6 +6,8 @@ import pandas as pd
 from fastmcp import FastMCP
 from dateutil import parser as date_parser
 
+from price_checker import check_prices, format_price_results
+
 # ============================================================================
 # 1. Configuration & Setup
 # ============================================================================
@@ -187,10 +189,17 @@ def get_active_service_ids(date_str: str) -> set[str]:
     return active_services
 
 
-def search_trains_with_context(origin_city: str, destination_city: str, date_str: str):
+def search_trains_with_context(origin_city: str, destination_city: str, date_str: str, page: int = 1, per_page: int = 10):
     """
     Find all trains traveling from origin city to destination city on a specific date.
-    Returns a formatted string with results.
+    Returns a formatted string with paginated results.
+
+    Args:
+        origin_city: Origin city name
+        destination_city: Destination city name
+        date_str: Date in YYYY-MM-DD format
+        page: Page number (1-indexed)
+        per_page: Results per page
     """
     # Get station IDs for both cities
     origin_result = get_stops_for_city(origin_city)
@@ -290,14 +299,41 @@ def search_trains_with_context(origin_city: str, destination_city: str, date_str
     if not results:
         return f"❌ No direct trains found from {origin_city} to {destination_city} on {date_str}. Try a different date or check for connecting routes."
 
-    # Format results nicely - show all trains for completeness
-    result_text = f"Found {len(results)} train(s):\n\n"
+    # Calculate pagination
+    total_results = len(results)
+    total_pages = (total_results + per_page - 1) // per_page  # Ceiling division
 
-    for i, train in enumerate(results, 1):
+    # Ensure page is within valid range
+    if page > total_pages:
+        page = total_pages
+    if page < 1:
+        page = 1
+
+    # Calculate slice indices
+    start_idx = (page - 1) * per_page
+    end_idx = min(start_idx + per_page, total_results)
+
+    # Get the current page of results
+    page_results = results[start_idx:end_idx]
+
+    # Format results with pagination info
+    result_text = f"Found {total_results} train(s) total\n"
+    result_text += f"Showing page {page} of {total_pages} ({len(page_results)} trains)\n\n"
+
+    for i, train in enumerate(page_results, start=start_idx + 1):
         result_text += f"  {i}. {train['train_type']}\n"
         result_text += f"     {train['origin_station']} → {train['destination_station']}\n"
         result_text += f"     Departs: {train['departure_time']} | Arrives: {train['arrival_time']}\n"
         result_text += f"     Duration: {train['duration_hours']}h {train['duration_mins']}min\n\n"
+
+    # Add pagination navigation hints
+    if total_pages > 1:
+        result_text += "─────────────────────────────────\n"
+        if page < total_pages:
+            result_text += f"💡 To see more trains, use page={page + 1}\n"
+        if page > 1:
+            result_text += f"💡 To see previous trains, use page={page - 1}\n"
+        result_text += f"💡 Total pages: {total_pages}\n"
 
     return result_text
 
@@ -308,7 +344,7 @@ def search_trains_with_context(origin_city: str, destination_city: str, date_str
 
 
 @mcp.tool()
-def search_trains(origin: str, destination: str, date: str = None) -> str:
+def search_trains(origin: str, destination: str, date: str = None, page: int = 1, per_page: int = 10) -> str:
     """
     Search for train journeys between two cities on a specific date.
 
@@ -320,6 +356,8 @@ def search_trains(origin: str, destination: str, date: str = None) -> str:
               - European: "28/11/2025"
               - Written: "November 28, 2025" or "28 November 2025"
               If not provided, searches for today's date.
+        page: Page number to display (default: 1)
+        per_page: Number of results per page (default: 10, max: 50)
 
     Returns:
         Formatted string with available train options including times and durations.
@@ -343,12 +381,16 @@ def search_trains(origin: str, destination: str, date: str = None) -> str:
     else:
         story += f"📅 Searching for trains on: {formatted_date} (today)\n\n"
 
+    # Validate pagination parameters
+    page = max(1, page)  # Ensure page is at least 1
+    per_page = min(max(1, per_page), 50)  # Ensure per_page is between 1 and 50
+
     # Search for trains
     story += "─────────────────────────────────\n"
     story += "🚄 AVAILABLE TRAINS\n"
     story += "─────────────────────────────────\n\n"
 
-    train_results = search_trains_with_context(origin, destination, formatted_date)
+    train_results = search_trains_with_context(origin, destination, formatted_date, page, per_page)
     story += train_results
 
     story += "\n═══════════════════════════════════\n"
@@ -386,6 +428,95 @@ def find_station(city_name: str) -> str:
         ):
             story += f"  {i}. {name}\n"
             story += f"     ID: {sid}\n"
+
+    story += "\n═══════════════════════════════════\n"
+
+    return story
+
+
+@mcp.tool()
+def get_train_prices(origin: str, destination: str, date: str = None, page: int = 1, per_page: int = 5) -> str:
+    """
+    Check actual ticket prices for trains between two cities using web scraping with pagination.
+
+    NOTE: This tool scrapes the Renfe website and may take a few seconds to complete.
+    It complements the search_trains tool by providing real-time price information.
+
+    Args:
+        origin: Starting city name (e.g., "Madrid", "Barcelona", "Valencia")
+        destination: Destination city name (e.g., "Madrid", "Barcelona", "Sevilla")
+        date: Travel date. Accepts flexible formats:
+              - ISO: "2025-11-28" (RECOMMENDED)
+              - European: "28/11/2025"
+              - Written: "November 28, 2025" or "28 November 2025"
+              If not provided, checks prices for today's date.
+        page: Page number to display (default: 1)
+        per_page: Number of results per page (default: 5, max: 20)
+
+    Returns:
+        Formatted string with train prices, availability, and booking information.
+    """
+    story = "═══════════════════════════════════\n"
+    story += "    RENFE PRICE CHECK\n"
+    story += "═══════════════════════════════════\n\n"
+
+    # Format the date
+    try:
+        formatted_date = get_formatted_date(date)
+    except ValueError as e:
+        story += str(e)
+        story += "\n═══════════════════════════════════\n"
+        return story
+
+    if date:
+        story += f"Checking prices for: {formatted_date}\n"
+    else:
+        story += f"Checking prices for: {formatted_date} (today)\n"
+
+    story += f"Scraping Renfe website for live prices...\n\n"
+
+    # Validate pagination parameters
+    page = max(1, page)  # Ensure page is at least 1
+    per_page = min(max(1, per_page), 20)  # Ensure per_page is between 1 and 20
+
+    try:
+        # Call the price checker with pagination
+        results = check_prices(origin, destination, formatted_date, page=page, per_page=per_page)
+
+        # Format results
+        story += "─────────────────────────────────\n"
+        story += "PRICE RESULTS\n"
+        story += "─────────────────────────────────\n\n"
+
+        if results:
+            story += f"Showing page {page} ({len(results)} trains)\n\n"
+
+            for i, train in enumerate(results, 1):
+                hours = train["duration_minutes"] // 60
+                mins = train["duration_minutes"] % 60
+                duration_str = f"{hours}h {mins}min"
+
+                availability = "[Available]" if train["available"] else "[Sold out]"
+                price_str = f"{train['price']:.2f}€" if train["available"] else "N/A"
+
+                story += f"  {i}. {train['train_type']}\n"
+                story += f"     Departs: {train['departure_time']} | Arrives: {train['arrival_time']}\n"
+                story += f"     Duration: {duration_str}\n"
+                story += f"     Price: {price_str} | {availability}\n\n"
+
+            story += "─────────────────────────────────\n"
+            story += f"💡 To see more prices, try page={page + 1}\n"
+        else:
+            story += "No trains available for this page.\n"
+
+        story += "\n💡 TIP: Use search_trains to see the complete schedule without prices.\n"
+
+    except ValueError as e:
+        story += f"❌ Error: {str(e)}\n"
+    except Exception as e:
+        story += f"❌ Failed to check prices: {str(e)}\n"
+        story += "\n💡 The Renfe website may be temporarily unavailable or the station names may not match.\n"
+        story += "   Try using exact station names like 'MADRID PTA. ATOCHA - ALMUDENA GRANDES' or 'BARCELONA-SANTS'.\n"
 
     story += "\n═══════════════════════════════════\n"
 

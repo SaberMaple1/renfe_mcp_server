@@ -1924,27 +1924,31 @@ wheels = [
 
 [[package]]
 name = "renfe-mcp"
-version = "0.1.0"
+version = "0.3.0"
 source = { virtual = "." }
 dependencies = [
     { name = "fastmcp" },
+    { name = "httpx" },
     { name = "ipykernel" },
+    { name = "json5" },
     { name = "jupyter" },
     { name = "pandas" },
+    { name = "pydantic" },
     { name = "python-dateutil" },
     { name = "python-dotenv" },
-    { name = "requests" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastmcp", specifier = ">=0.7.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "ipykernel", specifier = ">=7.1.0" },
+    { name = "json5", specifier = ">=0.12.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "pandas", specifier = ">=2.3.3" },
+    { name = "pydantic", specifier = ">=2.11.7" },
     { name = "python-dateutil", specifier = ">=2.8.2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "requests", specifier = ">=2.31.0" },
 ]
 
 [[package]]

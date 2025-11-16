@@ -18,6 +18,7 @@ env/
 renfe_schedule/
 renfe_schedule.zip
 
+renfe-bot/
 # Environment variables
 .env
 
@@ -27,3 +28,4 @@ renfe_schedule.zip
 *test.ipynb
 
 *.python-version
+

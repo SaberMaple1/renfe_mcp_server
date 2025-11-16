@@ -8,7 +8,8 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for que
 
 ## ✨ Features
 
-- 🔍 **Search trains** between any two Spanish cities on a specific date
+- 🔍 **Search trains** between any two Spanish cities on a specific date with pagination
+- 💰 **Check prices** - real-time price scraping from Renfe website with pagination support
 - 🚉 **Find stations** in any city (Madrid has 7 stations!)
 - 📅 **Flexible date parsing** - accepts ISO, European, and written date formats
 - 🔄 **Auto-updates** - automatically downloads latest GTFS schedules from Renfe
@@ -125,12 +126,14 @@ Restart Claude Desktop, and you can ask:
 - *"What's the earliest train from Barcelona to Valencia on December 1st?"*
 - *"What train stations are in Madrid?"*
 - *"How many trains run between Madrid and Sevilla in the afternoon?"*
+- *"Check prices for trains from Madrid to Barcelona on December 1st"*
+- *"What are the ticket prices for the first 5 trains?"*
 
 ## 🛠️ MCP Tools
 
 ### 1. `search_trains`
 
-Find trains between two cities on a specific date.
+Find trains between two cities on a specific date with pagination support.
 
 **Parameters:**
 - `origin` (string): Origin city name (e.g., "Madrid", "Barcelona")
@@ -140,10 +143,13 @@ Find trains between two cities on a specific date.
   - European: `"28/11/2025"`
   - Written: `"November 28, 2025"`
   - Default: today's date
+- `page` (integer, optional): Page number to display (default: 1)
+- `per_page` (integer, optional): Results per page (default: 10, max: 50)
 
 **Example Output:**
 ```
-Found 36 train(s):
+Found 36 train(s) total
+Showing page 1 of 4 (10 trains)
 
   1. AVE
      Madrid Pta.Atocha - Almudena Grandes → Barcelona-Sants
@@ -155,6 +161,10 @@ Found 36 train(s):
      Departs: 6:27:00 | Arrives: 9:25:00
      Duration: 2h 58min
   ...
+
+─────────────────────────────────
+To see more trains, use page=2
+Total pages: 4
 ```
 
 ### 2. `find_station`
@@ -168,12 +178,46 @@ Search for train stations in a city.
 ```
 Found 7 stations:
 
-📍 All stations found:
+All stations found:
   1. Madrid-Chamartín-Clara Campoamor (ID: 17000)
   2. Madrid - Atocha Cercanías (ID: 18000)
   3. Madrid Pta.Atocha - Almudena Grandes (ID: 60000)
   ...
 ```
+
+### 3. `get_train_prices`
+
+Check actual ticket prices by scraping the Renfe website with pagination support.
+
+**Parameters:**
+- `origin` (string): Origin city name (e.g., "Madrid", "Barcelona")
+- `destination` (string): Destination city name (e.g., "Valencia", "Sevilla")
+- `date` (string, optional): Travel date (same formats as `search_trains`)
+- `page` (integer, optional): Page number to display (default: 1)
+- `per_page` (integer, optional): Results per page (default: 5, max: 20)
+
+**Example Output:**
+```
+PRICE CHECK RESULTS
+From: Madrid -> Barcelona
+Date: 2025-11-17
+Showing 5 train(s)
+
+  1. AVE
+     Departs: 06:16 | Arrives: 09:05
+     Duration: 2h 49min
+     Price: 94.90 EUR | [Available]
+
+  2. AVE
+     Departs: 06:27 | Arrives: 09:25
+     Duration: 2h 58min
+     Price: 118.60 EUR | [Available]
+  ...
+
+To see more prices, try page=2
+```
+
+**Note:** This tool scrapes the Renfe website and may take a few seconds to complete. Pagination now matches `search_trains` so you can get prices for trains on any page (e.g., page 2 shows prices for trains 6-10).
 
 ## 📊 Data Updates
 
@@ -216,10 +260,18 @@ The update system:
 ```
 renfe_mcp/
 ├── main.py              # FastMCP server implementation
+├── price_checker.py     # Price checking module
 ├── update_data.py       # GTFS data updater
 ├── pyproject.toml       # Dependencies & project config
 ├── test.ipynb          # Jupyter notebook for testing
 ├── README.md           # This file
+├── renfe_scraper/      # Custom price scraper package
+│   ├── __init__.py      # Package exports
+│   ├── scraper.py       # RenfeScraper with DWR protocol
+│   ├── dwr.py           # DWR utilities & payload builders
+│   ├── models.py        # Pydantic models (Station, TrainRide)
+│   ├── exceptions.py    # Custom exceptions
+│   └── stations.json    # Station code database
 └── renfe_schedule/     # GTFS data (auto-downloaded)
     ├── stops.txt        # Station information
     ├── routes.txt       # Train routes (AVE, ALVIA, etc.)
@@ -291,14 +343,23 @@ uv run python update_data.py
 - **fastmcp** (>=0.7.0) - MCP server framework
 - **pandas** (>=2.3.3) - GTFS data processing
 - **python-dateutil** (>=2.8.2) - Flexible date parsing
-- **requests** (>=2.31.0) - HTTP client for downloads
+- **httpx** (>=0.27.0) - Modern HTTP client for price scraping
+- **json5** (>=0.12.0) - JavaScript object parsing for DWR responses
+- **pydantic** (>=2.11.7) - Data validation and models
 - **python-dotenv** (>=1.0.0) - Environment variables
 
 ### File Structure
 
 - `main.py` - MCP server with search_trains and find_station tools
+- `price_checker.py` - Price checking wrapper using custom scraper
 - `update_data.py` - GTFS data download and update module
 - `test.ipynb` - Interactive Jupyter notebook for testing
+- `renfe_scraper/` - Custom DWR-based price scraper implementation
+  - `scraper.py` - Main RenfeScraper class with DWR protocol
+  - `dwr.py` - DWR protocol utilities and payload builders
+  - `models.py` - Pydantic data models (Station, TrainRide)
+  - `exceptions.py` - Custom exception hierarchy
+  - `stations.json` - Station code database
 - `renfe_schedule/` - GTFS data directory (auto-populated)
 
 ## 📝 Data Source
@@ -327,11 +388,12 @@ Contributions welcome! Please:
 
 ### Ideas for Contributions
 
-- [ ] Add price information (if available)
+- [x] ~~Add price information~~ (✅ Implemented via web scraping)
 - [ ] Support for train status/delays
 - [ ] Multi-leg journey planning
 - [ ] Visualization of routes on maps
 - [ ] Additional query filters (train type, duration, etc.)
+- [ ] Return trip price checking
 
 ## 📄 License
 
@@ -355,6 +417,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [SNCF MCP Server](https://github.com/yourusername/sncf_mcp) - Similar server for French railways
 - [FastMCP](https://github.com/jlowin/fastmcp) - The framework powering this server
 - [MCP Servers](https://github.com/modelcontextprotocol/servers) - Official MCP server implementations
+
+## 🙏 Sources & Inspiration
+
+- **[renfe-bot](https://github.com/emartinez-dev/renfe-bot)** by [@emartinez-dev](https://github.com/emartinez-dev) - Telegram bot for Renfe train ticket monitoring. The DWR (Direct Web Remoting) protocol reverse-engineering and price scraping techniques were inspired by renfe-bot's implementation. This MCP server features a custom-built scraper using modern Python (httpx, pydantic) while preserving the core DWR protocol logic.
 
 ---
 
