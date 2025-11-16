@@ -3,12 +3,15 @@ Price checking wrapper for custom Renfe scraper.
 
 This module provides a simplified interface to check train prices using the
 custom renfe_scraper module with pagination support.
+
+Now uses the unified StationService for consistent station lookups.
 """
 
 from datetime import datetime
 from typing import List, Dict, Any
 
-from renfe_scraper import RenfeScraper, find_station
+from renfe_scraper import RenfeScraper
+from station_service import get_station_service
 
 
 def check_prices(
@@ -34,14 +37,26 @@ def check_prices(
     Raises:
         ValueError: If stations not found or invalid date format
     """
-    # Find origin and destination stations
-    origin_station = find_station(origin)
-    if not origin_station:
-        raise ValueError(f"Could not find station for '{origin}'. Please check the station name.")
+    # Find origin and destination stations using unified service
+    station_service = get_station_service()
 
-    dest_station = find_station(destination)
-    if not dest_station:
-        raise ValueError(f"Could not find station for '{destination}'. Please check the station name.")
+    origin_unified = station_service.find_station(origin)
+    if not origin_unified or not origin_unified.has_renfe_data():
+        raise ValueError(
+            f"Could not find station for '{origin}'. "
+            f"Please check the station name or use find_station tool to see available stations."
+        )
+
+    dest_unified = station_service.find_station(destination)
+    if not dest_unified or not dest_unified.has_renfe_data():
+        raise ValueError(
+            f"Could not find station for '{destination}'. "
+            f"Please check the station name or use find_station tool to see available stations."
+        )
+
+    # Convert to Renfe format for scraper
+    origin_station = origin_unified.to_renfe_format()
+    dest_station = dest_unified.to_renfe_format()
 
     # Parse date
     try:

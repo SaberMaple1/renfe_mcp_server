@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 from dateutil import parser as date_parser
 
 from price_checker import check_prices, format_price_results
+from station_service import get_station_service
 
 # ============================================================================
 # 1. Configuration & Setup
@@ -58,6 +59,13 @@ def load_gtfs_data():
 
     print("GTFS data loaded successfully!")
 
+    # Initialize station service with GTFS data
+    station_service = get_station_service(stops_df)
+    coverage = station_service.validate_coverage()
+    if coverage['warnings']:
+        for warning in coverage['warnings']:
+            print(f"⚠️  {warning}")
+
 
 # ============================================================================
 # 3. Core Helper Functions
@@ -107,13 +115,17 @@ def get_stops_for_city(city_name: str) -> dict[str, Any]:
     """
     Map a city name to all station IDs for that city.
     Returns a dict with: success, stop_ids, stations, context
-    """
-    city_name_lower = city_name.lower()
-    matching_stops = stops_df[
-        stops_df["stop_name"].str.lower().str.contains(city_name_lower, na=False)
-    ]
 
-    if matching_stops.empty:
+    Now uses the unified StationService for consistent station lookups.
+    """
+    # Use unified station service
+    station_service = get_station_service()
+    unified_stations = station_service.find_stations(city_name)
+
+    # Filter to only stations with GTFS data (needed for schedule search)
+    gtfs_stations = [s for s in unified_stations if s.has_gtfs_data()]
+
+    if not gtfs_stations:
         return {
             "success": False,
             "stop_ids": [],
@@ -121,8 +133,8 @@ def get_stops_for_city(city_name: str) -> dict[str, Any]:
             "context": f"❌ No stations found for '{city_name}'. Please check the spelling or try a different city name.",
         }
 
-    stop_ids = matching_stops["stop_id"].tolist()
-    stations = matching_stops["stop_name"].tolist()
+    stop_ids = [s.gtfs_id for s in gtfs_stations]
+    stations = [s.name for s in gtfs_stations]
 
     # Build context narrative
     context = f"🔍 Searched for '{city_name}':\n"
