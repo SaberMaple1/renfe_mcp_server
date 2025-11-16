@@ -352,7 +352,12 @@ class RenfeScraper:
 
 
 def load_stations() -> dict:
-    """Load station data from JSON file."""
+    """
+    Load station data from JSON file.
+
+    DEPRECATED: This function is kept for backward compatibility.
+    New code should use station_service.get_station_service() instead.
+    """
     stations_file = Path(__file__).parent / "stations.json"
     with open(stations_file, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -362,23 +367,41 @@ def find_station(name: str) -> Optional[Station]:
     """
     Find a station by name (case-insensitive).
 
+    Now uses the unified StationService for consistent lookups across
+    schedule search and price checking.
+
     Args:
         name: Station or city name to search for
 
     Returns:
         Station object if found, None otherwise
     """
-    stations = load_stations()
-    name_upper = name.upper()
+    try:
+        # Try to use unified station service
+        from station_service import get_station_service
 
-    # Try exact match first
-    for station_name, data in stations.items():
-        if station_name.upper() == name_upper:
-            return Station(name=station_name, code=data["cdgoEstacion"])
+        station_service = get_station_service()
+        unified_station = station_service.find_station(name)
 
-    # Try partial match
-    for station_name, data in stations.items():
-        if name_upper in station_name.upper():
-            return Station(name=station_name, code=data["cdgoEstacion"])
+        if unified_station and unified_station.has_renfe_data():
+            return unified_station.to_renfe_format()
 
-    return None
+        # If no match in unified service or missing Renfe data, return None
+        return None
+
+    except Exception:
+        # Fallback to legacy implementation if station_service unavailable
+        stations = load_stations()
+        name_upper = name.upper()
+
+        # Try exact match first
+        for station_name, data in stations.items():
+            if station_name.upper() == name_upper:
+                return Station(name=station_name, code=data["cdgoEstacion"])
+
+        # Try partial match
+        for station_name, data in stations.items():
+            if name_upper in station_name.upper():
+                return Station(name=station_name, code=data["cdgoEstacion"])
+
+        return None

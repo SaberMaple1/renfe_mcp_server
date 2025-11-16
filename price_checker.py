@@ -3,13 +3,16 @@ Price checking wrapper for custom Renfe scraper.
 
 This module provides a simplified interface to check train prices using the
 custom renfe_scraper module with pagination support.
+
+Now uses the unified StationService for consistent station lookups.
 """
 
 import logging
 from datetime import datetime
 from typing import List, Dict, Any
 
-from renfe_scraper import RenfeScraper, find_station
+from renfe_scraper import RenfeScraper
+from station_service import get_station_service
 
 logger = logging.getLogger(__name__)
 
@@ -39,16 +42,28 @@ def check_prices(
     """
     logger.info(f"Price check requested: {origin} → {destination} on {date}, page {page}")
 
-    # Find origin and destination stations
-    origin_station = find_station(origin)
-    if not origin_station:
-        logger.warning(f"Station not found: '{origin}'")
-        raise ValueError(f"Could not find station for '{origin}'. Please check the station name.")
+    # Find origin and destination stations using unified service
+    station_service = get_station_service()
 
-    dest_station = find_station(destination)
-    if not dest_station:
+    origin_unified = station_service.find_station(origin)
+    if not origin_unified or not origin_unified.has_renfe_data():
+        logger.warning(f"Station not found: '{origin}'")
+        raise ValueError(
+            f"Could not find station for '{origin}'. "
+            f"Please check the station name or use find_station tool to see available stations."
+        )
+
+    dest_unified = station_service.find_station(destination)
+    if not dest_unified or not dest_unified.has_renfe_data():
         logger.warning(f"Station not found: '{destination}'")
-        raise ValueError(f"Could not find station for '{destination}'. Please check the station name.")
+        raise ValueError(
+            f"Could not find station for '{destination}'. "
+            f"Please check the station name or use find_station tool to see available stations."
+        )
+
+    # Convert to Renfe format for scraper
+    origin_station = origin_unified.to_renfe_format()
+    dest_station = dest_unified.to_renfe_format()
 
     logger.debug(f"Stations resolved: {origin_station.code} → {dest_station.code}")
 
