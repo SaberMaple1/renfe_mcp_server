@@ -1,13 +1,18 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 from fastmcp import FastMCP
 from dateutil import parser as date_parser
+from dotenv import load_dotenv
 
 from price_checker import check_prices, format_price_results
 from station_service import get_station_service
+from security import require_auth, initialize_security
+
+# Load environment variables
+load_dotenv()
 
 # ============================================================================
 # 1. Configuration & Setup
@@ -74,8 +79,10 @@ def load_gtfs_data():
 
 def get_formatted_date(date_str=None):
     """
-    Flexible date parser that handles multiple formats.
+    Flexible date parser that handles multiple formats with security bounds.
     Returns date in YYYY-MM-DD format.
+
+    Security: Validates dates are within reasonable booking window (1 day past to 1 year future)
     """
     if not date_str:
         dt_obj = datetime.now()
@@ -97,6 +104,24 @@ def get_formatted_date(date_str=None):
             else:
                 # For ISO and other formats
                 dt_obj = date_parser.parse(date_str)
+
+            # SECURITY: Validate date bounds to prevent abuse
+            today = datetime.now()
+            min_date = today - timedelta(days=1)  # Allow yesterday for flexibility
+            max_date = today + timedelta(days=365)  # Max 1 year ahead
+
+            if dt_obj < min_date:
+                raise ValueError(
+                    f"❌ Date {dt_obj.date()} is in the past. "
+                    f"Please use a date from today onwards."
+                )
+
+            if dt_obj > max_date:
+                raise ValueError(
+                    f"❌ Date {dt_obj.date()} is too far in the future. "
+                    f"Maximum booking window is 365 days. "
+                    f"Latest date: {max_date.date()}"
+                )
 
         except (ValueError, date_parser.ParserError) as e:
             raise ValueError(
@@ -356,7 +381,8 @@ def search_trains_with_context(origin_city: str, destination_city: str, date_str
 
 
 @mcp.tool()
-def search_trains(origin: str, destination: str, date: str = None, page: int = 1, per_page: int = 10) -> str:
+@require_auth(is_price_request=False)
+def search_trains(origin: str, destination: str, date: str = None, page: int = 1, per_page: int = 10, api_key: str = None) -> str:
     """
     Search for train journeys between two cities on a specific date.
 
@@ -370,6 +396,7 @@ def search_trains(origin: str, destination: str, date: str = None, page: int = 1
               If not provided, searches for today's date.
         page: Page number to display (default: 1)
         per_page: Number of results per page (default: 10, max: 50)
+        api_key: API key for authentication (optional if configured via environment)
 
     Returns:
         Formatted string with available train options including times and durations.
@@ -411,7 +438,8 @@ def search_trains(origin: str, destination: str, date: str = None, page: int = 1
 
 
 @mcp.tool()
-def find_station(city_name: str) -> str:
+@require_auth(is_price_request=False)
+def find_station(city_name: str, api_key: str = None) -> str:
     """
     Search for train stations in a city and return matching options.
 
@@ -420,6 +448,7 @@ def find_station(city_name: str) -> str:
 
     Args:
         city_name: City name to search for (e.g., "Madrid", "Barcelona", "Valencia")
+        api_key: API key for authentication (optional if configured via environment)
 
     Returns:
         A formatted string showing all matching stations with their IDs and full names.
@@ -447,12 +476,14 @@ def find_station(city_name: str) -> str:
 
 
 @mcp.tool()
-def get_train_prices(origin: str, destination: str, date: str = None, page: int = 1, per_page: int = 5) -> str:
+@require_auth(is_price_request=True)
+def get_train_prices(origin: str, destination: str, date: str = None, page: int = 1, per_page: int = 5, api_key: str = None) -> str:
     """
     Check actual ticket prices for trains between two cities using web scraping with pagination.
 
     NOTE: This tool scrapes the Renfe website and may take a few seconds to complete.
     It complements the search_trains tool by providing real-time price information.
+    This endpoint has stricter rate limits due to web scraping.
 
     Args:
         origin: Starting city name (e.g., "Madrid", "Barcelona", "Valencia")
@@ -464,6 +495,7 @@ def get_train_prices(origin: str, destination: str, date: str = None, page: int 
               If not provided, checks prices for today's date.
         page: Page number to display (default: 1)
         per_page: Number of results per page (default: 5, max: 20)
+        api_key: API key for authentication (optional if configured via environment)
 
     Returns:
         Formatted string with train prices, availability, and booking information.
@@ -538,6 +570,9 @@ def get_train_prices(origin: str, destination: str, date: str = None, page: int 
 # ============================================================================
 # 5. Server Startup
 # ============================================================================
+
+# Initialize security system
+initialize_security()
 
 # Check for data updates before loading (optional - comment out to disable)
 try:
