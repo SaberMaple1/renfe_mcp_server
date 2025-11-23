@@ -21,6 +21,11 @@ renfe_schedule.zip
 renfe-bot/
 # Environment variables
 .env
+.env.backup
+
+# Security logs
+logs/
+*.log
 
 # Jupyter notebooks (except test notebook)
 *.ipynb
