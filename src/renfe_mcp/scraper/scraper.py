@@ -135,7 +135,7 @@ def create_secure_client() -> httpx.Client:
         # Headers
         headers={
             # More specific User-Agent (identifies the tool)
-            "User-Agent": "RenfeMCPServer/0.3.0 (Train Schedule Tool; +https://github.com/belgrano9/renfe_mcp_server)",
+            "User-Agent": "RenfeMCPServer/0.4.0 (Train Schedule Tool; +https://github.com/belgrano9/renfe_mcp_server)",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Encoding": "gzip, deflate",
             "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
