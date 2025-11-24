@@ -37,14 +37,9 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for que
    uv sync
    ```
 
-3. **Download GTFS data** (automatic on first run)
+3. **Run the server** (GTFS data downloads automatically)
    ```bash
-   uv run python update_data.py
-   ```
-
-4. **Test the server**
-   ```bash
-   uv run python main.py
+   uv run python -m renfe_mcp.server
    ```
 
 ## 📖 Usage
@@ -54,14 +49,16 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server for que
 Test the search functionality directly:
 
 ```python
-from main import load_gtfs_data, search_trains_with_context
+from renfe_mcp.schedule_searcher import ScheduleSearcher
+from renfe_mcp.price_checker import check_prices
 
-load_gtfs_data()
-result = search_trains_with_context("Madrid", "Barcelona", "2025-11-20")
-print(result)
+# Search trains
+searcher = ScheduleSearcher("renfe_schedule")
+trains = searcher.search("Madrid", "Barcelona", "2025-11-20")
+
+# Check prices
+prices = check_prices("Madrid", "Barcelona", "2025-11-20")
 ```
-
-Or use the included Jupyter notebook (`test.ipynb`) for interactive testing.
 
 ### Claude Desktop Integration
 
@@ -78,7 +75,8 @@ Add to your Claude Desktop config file:
         "C:\\Users\\YourName\\path\\to\\renfe_mcp",
         "run",
         "python",
-        "main.py"
+        "-m",
+        "renfe_mcp.server"
       ]
     }
   }
@@ -96,7 +94,8 @@ Add to your Claude Desktop config file:
         "/path/to/renfe_mcp",
         "run",
         "python",
-        "main.py"
+        "-m",
+        "renfe_mcp.server"
       ]
     }
   }
@@ -114,7 +113,8 @@ Add to your Claude Desktop config file:
         "/path/to/renfe_mcp",
         "run",
         "python",
-        "main.py"
+        "-m",
+        "renfe_mcp.server"
       ]
     }
   }
@@ -228,7 +228,7 @@ The server includes automatic GTFS data updates from Renfe's open data portal.
 On server startup, it checks for new data and downloads if needed:
 
 ```bash
-uv run python main.py
+uv run python -m renfe_mcp.server
 # [CHECK] Checking data versions:
 #         Server: 2025-11-15T00:40:21
 #         Local:  2025-11-10T00:30:15
@@ -241,12 +241,12 @@ uv run python main.py
 
 **Check and update if needed:**
 ```bash
-uv run python update_data.py
+uv run python -m renfe_mcp.update_data
 ```
 
 **Force update (download regardless of version):**
 ```bash
-uv run python update_data.py --force
+uv run python -m renfe_mcp.update_data --force
 ```
 
 The update system:
@@ -259,34 +259,38 @@ The update system:
 
 ```
 renfe_mcp/
-├── main.py              # FastMCP server implementation
-├── price_checker.py     # Price checking module
-├── update_data.py       # GTFS data updater
-├── pyproject.toml       # Dependencies & project config
-├── test.ipynb          # Jupyter notebook for testing
-├── README.md           # This file
-├── renfe_scraper/      # Custom price scraper package
-│   ├── __init__.py      # Package exports
-│   ├── scraper.py       # RenfeScraper with DWR protocol
-│   ├── dwr.py           # DWR utilities & payload builders
-│   ├── models.py        # Pydantic models (Station, TrainRide)
-│   ├── exceptions.py    # Custom exceptions
-│   └── stations.json    # Station code database
-├── tests/              # Test suite
-│   ├── test_custom_scraper.py
+├── pyproject.toml           # Dependencies & build config
+├── README.md                # This file
+├── src/renfe_mcp/           # Main package
+│   ├── __init__.py          # Package exports
+│   ├── server.py            # FastMCP server implementation
+│   ├── config.py            # Pydantic configuration
+│   ├── exceptions.py        # Exception hierarchy
+│   ├── logging.py           # Structured logging
+│   ├── security.py          # Auth & rate limiting
+│   ├── price_checker.py     # Price checking module
+│   ├── schedule_searcher.py # GTFS schedule search
+│   ├── station_service.py   # Unified station lookups
+│   ├── update_data.py       # GTFS data updater
+│   └── scraper/             # Price scraper package
+│       ├── __init__.py      # Package exports
+│       ├── scraper.py       # RenfeScraper with DWR protocol
+│       ├── dwr.py           # DWR utilities
+│       ├── models.py        # Pydantic models
+│       ├── exceptions.py    # Scraper exceptions
+│       └── stations.json    # Station code database
+├── tests/                   # Test suite
 │   ├── test_final_integration.py
-│   ├── test_pagination.py
-│   ├── test_price_checker.py
-│   ├── test_price_pagination.py
-│   └── test_updated_price_checker.py
-└── renfe_schedule/     # GTFS data (auto-downloaded)
-    ├── stops.txt        # Station information
-    ├── routes.txt       # Train routes (AVE, ALVIA, etc.)
-    ├── trips.txt        # Trip schedules
-    ├── stop_times.txt   # Arrival/departure times
-    ├── calendar.txt     # Service schedules
-    ├── calendar_dates.txt # Holiday exceptions
-    └── .last_updated    # Version tracking
+│   ├── test_security.py
+│   └── ...
+└── renfe_schedule/          # GTFS data (auto-downloaded)
+    ├── stops.txt            # Station information
+    ├── routes.txt           # Train routes
+    ├── trips.txt            # Trip schedules
+    ├── stop_times.txt       # Arrival/departure times
+    ├── calendar.txt         # Service schedules
+    ├── calendar_dates.txt   # Holiday exceptions
+    └── .last_updated        # Version tracking
 ```
 
 ### How It Works
@@ -339,37 +343,41 @@ cd renfe_mcp
 uv sync
 
 # Run the server
-uv run python main.py
+uv run python -m renfe_mcp.server
 
-# Update GTFS data
-uv run python update_data.py
+# Run tests
+uv run python tests/test_final_integration.py
 ```
 
 ### Dependencies
 
 - **fastmcp** (>=0.7.0) - MCP server framework
 - **pandas** (>=2.3.3) - GTFS data processing
-- **python-dateutil** (>=2.8.2) - Flexible date parsing
-- **httpx** (>=0.27.0) - Modern HTTP client for price scraping
-- **json5** (>=0.12.0) - JavaScript object parsing for DWR responses
 - **pydantic** (>=2.11.7) - Data validation and models
+- **pydantic-settings** (>=2.0.0) - Environment-based configuration
+- **httpx** (>=0.27.0) - Modern HTTP client for price scraping
+- **python-dateutil** (>=2.8.2) - Flexible date parsing
+- **json5** (>=0.12.0) - JavaScript object parsing for DWR responses
 - **python-dotenv** (>=1.0.0) - Environment variables
 
-### File Structure
+### Configuration
 
-- `main.py` - MCP server with search_trains and find_station tools
-- `price_checker.py` - Price checking wrapper using custom scraper
-- `update_data.py` - GTFS data download and update module
-- `test.ipynb` - Interactive Jupyter notebook for testing
-- `renfe_scraper/` - Custom DWR-based price scraper implementation
-  - `scraper.py` - Main RenfeScraper class with DWR protocol
-  - `dwr.py` - DWR protocol utilities and payload builders
-  - `models.py` - Pydantic data models (Station, TrainRide)
-  - `exceptions.py` - Custom exception hierarchy
-  - `stations.json` - Station code database
-- `tests/` - Comprehensive test suite
-  - Integration tests, pagination tests, and scraper tests
-- `renfe_schedule/` - GTFS data directory (auto-populated)
+Configure via environment variables (prefix `RENFE_`) or `.env` file:
+
+```bash
+# Authentication
+RENFE_ENABLE_AUTH=true
+RENFE_API_KEY=your-secret-key
+
+# Rate Limiting
+RENFE_RATE_LIMIT_ENABLED=true
+RENFE_MAX_REQUESTS_PER_MINUTE=30
+RENFE_MAX_REQUESTS_PER_HOUR=200
+
+# Development
+RENFE_DEV_MODE=false
+RENFE_LOG_LEVEL=INFO
+```
 
 ## 📝 Data Source
 
