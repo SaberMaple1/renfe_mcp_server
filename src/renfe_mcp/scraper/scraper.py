@@ -355,6 +355,8 @@ class RenfeScraper:
 
     def _do_search(self) -> None:
         """Initialize the search session."""
+        from urllib.parse import quote
+
         # Create search cookie
         search_cookie = {
             "origen": {"code": self.origin.code, "name": self.origin.name},
@@ -364,9 +366,14 @@ class RenfeScraper:
             "pasajerosSpChild": 0,
         }
 
+        # SECURITY: URL-encode the JSON cookie value to handle non-ASCII characters
+        # (like Spanish accented characters: á, é, í, ó, ú, ñ)
+        cookie_json = json.dumps(search_cookie, ensure_ascii=False)
+        cookie_encoded = quote(cookie_json, safe='')
+
         self.client.cookies.set(
             "Search",
-            str(search_cookie),
+            cookie_encoded,
             domain=".renfe.com",
             path="/"
         )
